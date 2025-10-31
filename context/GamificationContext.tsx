@@ -297,38 +297,26 @@ export const [GamificationProvider, useGamification] = createContextHook(() => {
   }, [persist]);
 
   const canCheckIn = useCallback(() => {
-    let result = true;
-    setState((prev) => {
-      if (!prev.lastCheckInISO) {
-        result = true;
-        return prev;
-      }
-      const now = new Date();
-      const lastCheckIn = new Date(prev.lastCheckInISO);
-      const diff = now.getTime() - lastCheckIn.getTime();
-      const hours = diff / (1000 * 60 * 60);
-      result = hours >= 24;
-      return prev;
-    });
-    return result;
-  }, []);
+    if (!state.lastCheckInISO) {
+      return true;
+    }
+    const now = new Date();
+    const lastCheckIn = new Date(state.lastCheckInISO);
+    const diff = now.getTime() - lastCheckIn.getTime();
+    const hours = diff / (1000 * 60 * 60);
+    return hours >= 24;
+  }, [state.lastCheckInISO]);
 
   const timeUntilNextCheckIn = useCallback(() => {
-    let result = 0;
-    setState((prev) => {
-      if (!prev.lastCheckInISO) {
-        result = 0;
-        return prev;
-      }
-      const now = new Date();
-      const lastCheckIn = new Date(prev.lastCheckInISO);
-      const nextCheckIn = new Date(lastCheckIn.getTime() + 24 * 60 * 60 * 1000);
-      const diff = nextCheckIn.getTime() - now.getTime();
-      result = Math.max(0, diff);
-      return prev;
-    });
-    return result;
-  }, []);
+    if (!state.lastCheckInISO) {
+      return 0;
+    }
+    const now = new Date();
+    const lastCheckIn = new Date(state.lastCheckInISO);
+    const nextCheckIn = new Date(lastCheckIn.getTime() + 24 * 60 * 60 * 1000);
+    const diff = nextCheckIn.getTime() - now.getTime();
+    return Math.max(0, diff);
+  }, [state.lastCheckInISO]);
 
   const dailyCheckIn = useCallback(() => {
     let success = false;
