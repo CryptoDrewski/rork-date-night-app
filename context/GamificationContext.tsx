@@ -297,29 +297,52 @@ export const [GamificationProvider, useGamification] = createContextHook(() => {
   }, [persist]);
 
   const canCheckIn = useCallback(() => {
-    if (!state.lastCheckInISO) return true;
-    const now = new Date();
-    const lastCheckIn = new Date(state.lastCheckInISO);
-    const diff = now.getTime() - lastCheckIn.getTime();
-    const hours = diff / (1000 * 60 * 60);
-    return hours >= 24;
-  }, [state.lastCheckInISO]);
+    let result = true;
+    setState((prev) => {
+      if (!prev.lastCheckInISO) {
+        result = true;
+        return prev;
+      }
+      const now = new Date();
+      const lastCheckIn = new Date(prev.lastCheckInISO);
+      const diff = now.getTime() - lastCheckIn.getTime();
+      const hours = diff / (1000 * 60 * 60);
+      result = hours >= 24;
+      return prev;
+    });
+    return result;
+  }, []);
 
   const timeUntilNextCheckIn = useCallback(() => {
-    if (!state.lastCheckInISO) return 0;
-    const now = new Date();
-    const lastCheckIn = new Date(state.lastCheckInISO);
-    const nextCheckIn = new Date(lastCheckIn.getTime() + 24 * 60 * 60 * 1000);
-    const diff = nextCheckIn.getTime() - now.getTime();
-    return Math.max(0, diff);
-  }, [state.lastCheckInISO]);
+    let result = 0;
+    setState((prev) => {
+      if (!prev.lastCheckInISO) {
+        result = 0;
+        return prev;
+      }
+      const now = new Date();
+      const lastCheckIn = new Date(prev.lastCheckInISO);
+      const nextCheckIn = new Date(lastCheckIn.getTime() + 24 * 60 * 60 * 1000);
+      const diff = nextCheckIn.getTime() - now.getTime();
+      result = Math.max(0, diff);
+      return prev;
+    });
+    return result;
+  }, []);
 
   const dailyCheckIn = useCallback(() => {
-    if (!canCheckIn()) {
-      console.log("[Check-in] Not ready yet");
-      return false;
-    }
+    let success = false;
     setState((prev) => {
+      if (prev.lastCheckInISO) {
+        const now = new Date();
+        const lastCheckIn = new Date(prev.lastCheckInISO);
+        const diff = now.getTime() - lastCheckIn.getTime();
+        const hours = diff / (1000 * 60 * 60);
+        if (hours < 24) {
+          console.log("[Check-in] Not ready yet");
+          return prev;
+        }
+      }
       const withStreak = touchDailyStreak(prev);
       const nextXP = withStreak.xp + 100;
       const lp = levelProgressForXP(nextXP);
@@ -332,10 +355,11 @@ export const [GamificationProvider, useGamification] = createContextHook(() => {
       };
       void persist(next);
       console.log("[Check-in] Daily check-in complete! +100 XP");
+      success = true;
       return next;
     });
-    return true;
-  }, [canCheckIn, persist, touchDailyStreak]);
+    return success;
+  }, [persist, touchDailyStreak]);
 
   return useMemo(() => ({
     loading,
