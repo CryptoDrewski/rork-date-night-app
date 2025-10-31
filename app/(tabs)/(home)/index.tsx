@@ -1,5 +1,6 @@
 import { useRouter } from "expo-router";
 import XPHeader from "@/components/XPHeader";
+import DailyCheckIn from "@/components/DailyCheckIn";
 import { Sparkles, Search, TrendingUp, DollarSign, MapPin, RefreshCw } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import {
@@ -137,6 +138,8 @@ export default function HomeScreen() {
           </View>
           <XPHeader />
         </View>
+
+        <DailyCheckIn />
 
         <View style={styles.searchContainer}>
           <View style={styles.searchBar}>
