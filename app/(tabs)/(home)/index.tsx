@@ -48,10 +48,12 @@ export default function HomeScreen() {
       duration: 600,
       useNativeDriver: true,
     }).start();
-    
+  }, [fadeAnim]);
+
+  useEffect(() => {
     addXP(25, "Daily login");
     completeQuest("daily_login");
-  }, [fadeAnim, addXP, completeQuest]);
+  }, [addXP, completeQuest]);
 
   const handleAIGenerate = () => {
     if (searchQuery.trim()) {
