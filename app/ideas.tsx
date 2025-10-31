@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter, Stack } from "expo-router";
-import { Heart, Clock, DollarSign, ArrowLeft, MapPin, Zap, AlertCircle } from "lucide-react-native";
+import { Heart, Clock, DollarSign, MapPin, Zap, AlertCircle } from "lucide-react-native";
 import { useState, useEffect } from "react";
 import {
   View,
@@ -12,36 +12,12 @@ import {
   Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useMutation } from "@tanstack/react-query";
-import { generateText } from "@rork/toolkit-sdk";
+import { trpc } from "@/lib/trpc";
 import * as Location from "expo-location";
 import Colors from "@/constants/colors";
 import { useApp } from "@/context/AppContext";
 import { useGamification } from "@/context/GamificationContext";
-import type { DateIdea, BudgetLevel, IdealTime } from "@/types";
-
-const AI_SYSTEM_PROMPT = `You are "Date Night Genie," an expert concierge for couples. Generate 5-8 diverse date ideas tailored to the user's vibe, location, and real local events/venues. Return valid JSON only with this schema:
-{
-  "ideas": [
-    {
-      "title": string,
-      "description": string,
-      "budget": "$" | "$" | "$$",
-      "durationMinutes": number,
-      "tags": string[],
-      "idealTime": "day" | "night" | "flex",
-      "suggestedVenueTypes": string[]
-    }
-  ]
-}
-
-IMPORTANT: 
-- Use the user's ACTUAL LOCATION to suggest REAL places and events happening NOW or SOON
-- Include specific venue names, local attractions, seasonal events, festivals, markets, etc.
-- Check current date/time and suggest timely activities
-- If near a city, mention actual neighborhoods, parks, restaurants, entertainment venues
-- Prioritize diverse options: outdoors, food, arts/culture, budget-friendly, cozy/quiet, adventurous
-- Make suggestions feel local and specific, not generic`;
+import type { DateIdea, BudgetLevel } from "@/types";
 
 const IDEA_GENERATION_COST = 50;
 
@@ -113,7 +89,17 @@ export default function IdeasScreen() {
     
     const success = spendXP(IDEA_GENERATION_COST, "Generate ideas");
     if (success) {
-      generateMutation.mutate(prompt);
+      generateMutation.mutate({
+        prompt,
+        latitude: location?.coords.latitude,
+        longitude: location?.coords.longitude,
+        city: preferences.city,
+        relationshipStage: preferences.relationshipStage,
+        minBudget: preferences.minBudget,
+        maxBudget: preferences.maxBudget,
+        interests: preferences.interests,
+        radiusKm: preferences.radiusKm,
+      });
     }
   };
 
@@ -125,86 +111,10 @@ export default function IdeasScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prompt]);
 
-  const generateMutation = useMutation({
-    mutationFn: async (userPrompt: string) => {
-      console.log('🎯 Starting AI generation...');
-      console.log('📝 User prompt:', userPrompt);
-      console.log('📍 Location:', location ? `${location.coords.latitude}, ${location.coords.longitude}` : 'None');
-      
-      const now = new Date();
-      const dayOfWeek = now.toLocaleDateString('en-US', { weekday: 'long' });
-      const timeOfDay = now.getHours() < 12 ? 'morning' : now.getHours() < 17 ? 'afternoon' : 'evening';
-      const season = now.getMonth() < 3 ? 'winter' : now.getMonth() < 6 ? 'spring' : now.getMonth() < 9 ? 'summer' : 'fall';
-      
-      let locationContext = '';
-      if (location) {
-        locationContext = `\n- GPS Coordinates: ${location.coords.latitude.toFixed(4)}, ${location.coords.longitude.toFixed(4)}`;
-      }
-      if (preferences.city) {
-        locationContext += `\n- City/Area: ${preferences.city}`;
-      }
-      
-      const contextPrompt = `
-CURRENT CONTEXT:
-- Date: ${now.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-- Day: ${dayOfWeek}
-- Time: ${timeOfDay} (${now.getHours()}:${now.getMinutes().toString().padStart(2, '0')})
-- Season: ${season}${locationContext}
-
-USER PROFILE:
-- Relationship Stage: ${preferences.relationshipStage}
-- Budget Range: ${preferences.minBudget} to ${preferences.maxBudget}
-- Interests: ${preferences.interests.join(", ") || "Open to anything"}
-- Search Radius: ${Math.round(preferences.radiusKm / 1.60934)} miles
-
-USER REQUEST: ${userPrompt}
-
-Generate SPECIFIC, LOCAL date ideas. Use real place names if you know them. Suggest actual events, venues, or activities that would be happening in this location at this time. Be creative and timely!`;
-
-      console.log('🤖 Calling AI with context...');
-      
-      const result = await generateText({
-        messages: [
-          { role: "user", content: AI_SYSTEM_PROMPT + "\n\n" + contextPrompt },
-        ],
-      });
-      
-      console.log('✅ AI response received');
-      console.log('📄 Raw response:', result.substring(0, 200) + '...');
-
-      let cleanedResult = result.trim();
-      if (cleanedResult.startsWith('```json')) {
-        cleanedResult = cleanedResult.replace(/```json\n?/g, '').replace(/```\n?$/g, '');
-      } else if (cleanedResult.startsWith('```')) {
-        cleanedResult = cleanedResult.replace(/```\n?/g, '');
-      }
-      
-      console.log('🧹 Cleaned response:', cleanedResult.substring(0, 200) + '...');
-      
-      const parsed = JSON.parse(cleanedResult);
-      const ideas: DateIdea[] = parsed.ideas.map((idea: {
-        title: string;
-        description: string;
-        budget: BudgetLevel;
-        durationMinutes: number;
-        tags: string[];
-        idealTime: IdealTime;
-        suggestedVenueTypes: string[];
-      }, index: number) => {
-        console.log(`💡 Idea ${index + 1}:`, idea.title);
-        return {
-          id: `idea_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-          ...idea,
-          createdAt: new Date().toISOString(),
-        };
-      });
-
-      console.log(`✨ Generated ${ideas.length} ideas successfully`);
-      return ideas;
-    },
+  const generateMutation = trpc.ideas.generate.useMutation({
     onSuccess: (ideas) => {
       console.log('✅ Ideas saved to state');
-      setGeneratedIdeas(ideas);
+      setGeneratedIdeas(ideas as DateIdea[]);
       trackIdea();
       setShowInsufficientXP(false);
       
@@ -287,11 +197,7 @@ Generate SPECIFIC, LOCAL date ideas. Use real place names if you know them. Sugg
         options={{
           headerShown: true,
           headerTitle: "Date Ideas",
-          headerLeft: () => (
-            <TouchableOpacity onPress={() => router.back()}>
-              <ArrowLeft size={24} color={Colors.text} />
-            </TouchableOpacity>
-          ),
+          headerBackVisible: true,
         }}
       />
       <SafeAreaView style={styles.container} edges={["bottom"]}>
