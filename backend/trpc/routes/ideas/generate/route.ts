@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { publicProcedure } from "../../../create-context";
-import { generateText } from "@rork/toolkit-sdk";
+import { generateDateIdeas } from "../ai-service";
 
 const AI_SYSTEM_PROMPT = `You are "Date Night Genie," an expert concierge for couples. Generate 5-8 diverse date ideas tailored to the user's vibe, location, and real local events/venues. Return valid JSON only with this schema:
 {
@@ -76,7 +76,7 @@ Generate SPECIFIC, LOCAL date ideas. Use real place names if you know them. Sugg
 
     console.log('🤖 Calling AI with context...');
     
-    const result = await generateText({
+    const result = await generateDateIdeas({
       messages: [
         { role: "user", content: AI_SYSTEM_PROMPT + "\n\n" + contextPrompt },
       ],
