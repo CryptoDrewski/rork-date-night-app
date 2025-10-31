@@ -155,11 +155,11 @@ export default function HomeScreen() {
               onSubmitEditing={handleAIGenerate}
               returnKeyType="search"
             />
-            {searchQuery.length > 0 && (
+            {searchQuery.length > 0 ? (
               <TouchableOpacity onPress={handleAIGenerate} style={styles.searchButton}>
                 <Search size={20} color="#FFF" />
               </TouchableOpacity>
-            )}
+            ) : null}
           </View>
           <Text style={styles.searchHint}>
             Try: &quot;Romantic dinner under $100&quot; or &quot;Fun outdoor activity&quot;
